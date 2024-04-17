@@ -11,4 +11,10 @@ public class DecisionEngineConstants {
     public static final Integer SEGMENT_1_CREDIT_MODIFIER = 100;
     public static final Integer SEGMENT_2_CREDIT_MODIFIER = 300;
     public static final Integer SEGMENT_3_CREDIT_MODIFIER = 1000;
+
+    public static final Double INTEREST_RATE_1 = 0.05;
+    public static final Double INTEREST_RATE_2 = 0.04;
+    public static final Double INTEREST_RATE_3 = 0.03;
+    public static final Integer EST_MAX_AGE_MONTHS = 935;
+
 }
