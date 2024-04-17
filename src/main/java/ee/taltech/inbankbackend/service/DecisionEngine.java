@@ -8,6 +8,10 @@ import ee.taltech.inbankbackend.exceptions.InvalidPersonalCodeException;
 import ee.taltech.inbankbackend.exceptions.NoValidLoanException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.Period;
+
+
 /**
  * A service class that provides a method for calculating an approved loan amount and period for a customer.
  * The loan amount is calculated based on the customer's credit modifier,
@@ -41,12 +45,18 @@ public class DecisionEngine {
         try {
             verifyInputs(personalCode, loanAmount, loanPeriod);
         } catch (Exception e) {
-            return new Decision(null, null, e.getMessage());
+            return new Decision(null, null, e.getMessage(), null);
         }
 
         int outputLoanAmount;
         creditModifier = getCreditModifier(personalCode);
 
+        if (!isClientAdult(personalCode)) {
+            throw new NoValidLoanException("The minimum age for applying for a loan is 18.");
+        }
+        if (!isAgeValidForLoanLength(personalCode, loanPeriod)) {
+            throw new NoValidLoanException("Unfortunately, your age exceeds the maximum set limit for this loan.");
+        }
         if (creditModifier == 0) {
             throw new NoValidLoanException("No valid loan found!");
         }
@@ -57,11 +67,100 @@ public class DecisionEngine {
 
         if (loanPeriod <= DecisionEngineConstants.MAXIMUM_LOAN_PERIOD) {
             outputLoanAmount = Math.min(DecisionEngineConstants.MAXIMUM_LOAN_AMOUNT, highestValidLoanAmount(loanPeriod));
+
         } else {
             throw new NoValidLoanException("No valid loan found!");
         }
 
-        return new Decision(outputLoanAmount, loanPeriod, null);
+        int requestedLoanAmount = Math.toIntExact(loanAmount);
+
+        int requestedMonthlyPayment = 0;
+        if (requestedLoanAmount <= outputLoanAmount) {
+            requestedMonthlyPayment = monthlyPaymentCalculator(requestedLoanAmount, loanPeriod, personalCode);
+
+        }
+
+        return new Decision(outputLoanAmount, loanPeriod, null, requestedMonthlyPayment);
+    }
+
+    /**
+     * Calculates the monthly payment for the amount client requested.
+     * Bank needs to make some money, so I added some interest.
+     * If clients creditModifier is 100, interest rate is 5%, it creditModifier is 300, interest comes down to 4%
+     * and if the client has a creditModifier of 1000 the interest rate comes down to 3%
+     * @return Monthly payment
+     */
+    private int monthlyPaymentCalculator (int requestedLoanAmount, int loanPeriod, String personalCode) {
+
+        int modifier = getCreditModifier(personalCode);
+        double interest = switch (modifier) {
+            case 100 -> DecisionEngineConstants.INTEREST_RATE_1;
+            case 300 -> DecisionEngineConstants.INTEREST_RATE_2;
+            case 1000 -> DecisionEngineConstants.INTEREST_RATE_3;
+            default -> 0.0;
+        };
+
+        double beforeInterest = (double) requestedLoanAmount / loanPeriod;
+        double interestCalc = beforeInterest + (beforeInterest * interest);
+
+        return (int) interestCalc;
+
+    }
+
+
+
+
+    /**
+     * Calculates clients birthday(LocalDate) from clients personal code.
+     */
+    private LocalDate birthDateGenerator(String personalCode) {
+
+        String century = null;
+
+        if(personalCode.charAt(0) == '3'||personalCode.charAt(0) == '4') {
+            century = "19";
+        }
+
+        if(personalCode.charAt(0) == '5'||personalCode.charAt(0) == '6') {
+            century = "20";
+        }
+
+        int year = Integer.parseInt(century + personalCode.substring(1,3));
+        int month = Integer.parseInt(personalCode.substring(3,5));
+        int day = Integer.parseInt(personalCode.substring(5,7));
+
+        return LocalDate.of(year, month, day);
+
+    }
+
+    /**
+     * Calculates clients age at the end on the loan contract.
+     * If the persons age is above 78 years(935 months) with loan period is added,
+     * the loan is declined.
+     */
+    private boolean isAgeValidForLoanLength(String personalCode, int loanPeriod) {
+        LocalDate now = LocalDate.now();
+        LocalDate birthDate = birthDateGenerator(personalCode);
+
+        Period clientAge = Period.between(birthDate, now);
+
+        int months = clientAge.getYears() * 12 + clientAge.getMonths();
+
+        return (months + loanPeriod) <= DecisionEngineConstants.EST_MAX_AGE_MONTHS;
+    }
+
+    /**
+     * Calculates if the client is an adult.
+     */
+
+    private boolean isClientAdult(String personalCode) {
+        LocalDate now = LocalDate.now();
+
+        LocalDate birthDate = birthDateGenerator(personalCode);
+        LocalDate adultDate = now.minusYears(18);
+
+        return !birthDate.isAfter(adultDate);
+
     }
 
     /**

@@ -50,24 +50,30 @@ public class DecisionEngineController {
             response.setLoanAmount(decision.getLoanAmount());
             response.setLoanPeriod(decision.getLoanPeriod());
             response.setErrorMessage(decision.getErrorMessage());
+            response.setMonthlyPayment(decision.getMonthlyPayment());
+
+
 
             return ResponseEntity.ok(response);
         } catch (InvalidPersonalCodeException | InvalidLoanAmountException | InvalidLoanPeriodException e) {
             response.setLoanAmount(null);
             response.setLoanPeriod(null);
             response.setErrorMessage(e.getMessage());
+            response.setMonthlyPayment(null);
 
             return ResponseEntity.badRequest().body(response);
         } catch (NoValidLoanException e) {
             response.setLoanAmount(null);
             response.setLoanPeriod(null);
             response.setErrorMessage(e.getMessage());
+            response.setMonthlyPayment(null);
 
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         } catch (Exception e) {
             response.setLoanAmount(null);
             response.setLoanPeriod(null);
             response.setErrorMessage("An unexpected error occurred");
+            response.setMonthlyPayment(null);
 
             return ResponseEntity.internalServerError().body(response);
         }

@@ -12,4 +12,5 @@ public class Decision {
     private final Integer loanAmount;
     private final Integer loanPeriod;
     private final String errorMessage;
+    private final Integer monthlyPayment;
 }
